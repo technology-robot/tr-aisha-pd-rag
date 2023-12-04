@@ -50,7 +50,7 @@ def get_retriever():
         vector_retriever,
         # bm25_retriever,
         indices["keyword_table_index"].as_retriever(similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
-    ]
+    ]  # make sure the keyword table is the last position
     retriever = QueryFusionRetriever(
         retrievers,
         similarity_top_k=similarity_top_k,
@@ -89,4 +89,6 @@ def handle_session(question, session_id = None):
     with gcs_fs.open(store_session_path, 'w') as f_p:
         json.dump(chat_history, f_p)
 
+    nodes_with_scores = retriever._retrievers[-1].retrieve(response.response)  # the last retriever is the keyword table
+    response.source_nodes = nodes_with_scores + response.source_nodes
     return response, session_id
