@@ -30,19 +30,20 @@ similarity_top_k_before_fusion_multiplier = int(os.environ.get("similarity_top_k
 
 def get_retriever():
     input_scheme = scheme["input"]
-    vector_store_info = VectorStoreInfo(
-        content_info=input_scheme["content_info"],
-        metadata_info=[
-            MetadataInfo(
-                name=metadata_info["name"],
-                type=metadata_info["type"],
-                description=metadata_info["description"]
-            )
-            for metadata_info in input_scheme["metadata_info"]
-        ],
-    )
-    vector_retriever = VectorIndexAutoRetriever(
-        indices["vector_index"], vector_store_info=vector_store_info, similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
+    # vector_store_info = VectorStoreInfo(
+    #     content_info=input_scheme["content_info"],
+    #     metadata_info=[
+    #         MetadataInfo(
+    #             name=metadata_info["name"],
+    #             type=metadata_info["type"],
+    #             description=metadata_info["description"]
+    #         )
+    #         for metadata_info in input_scheme["metadata_info"]
+    #     ],
+    # )
+    # vector_retriever = VectorIndexAutoRetriever(
+    #     indices["vector_index"], vector_store_info=vector_store_info, similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
+    vector_retriever = indices["vector_index"].as_retriever(similarity_top_k=similarity_top_k)
     # bm25_retriever = BM25Retriever.from_defaults(docstore=storage_context.docstore, similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
 
     # TODO: modify here
@@ -60,9 +61,9 @@ def get_retriever():
         verbose=False,
         # query_gen_prompt="...",  # we could override the query generation prompt here
     )
-    return retriever
+    return retriever, retrievers
 
-retriever = get_retriever()
+retriever, _retrievers = get_retriever()
 def handle_session(question, session_id = None):
     if session_id is None:
         session_id = str(uuid.uuid4())
@@ -89,6 +90,6 @@ def handle_session(question, session_id = None):
     with gcs_fs.open(store_session_path, 'w') as f_p:
         json.dump(chat_history, f_p)
 
-    nodes_with_scores = retriever._retrievers[-1].retrieve(response.response)  # the last retriever is the keyword table
-    response.source_nodes = nodes_with_scores + response.source_nodes
+    for _retriever in _retrievers:
+        response.source_nodes.extend(_retriever.retrieve(response.response))
     return response, session_id
