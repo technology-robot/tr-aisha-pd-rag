@@ -1,0 +1,12 @@
+fastapi[all]
+
+requests
+structlog
+
+google-auth
+
+qdrant-client
+llama_index
+rank_bm25
+gcsfs
+pymongo[srv]
