@@ -1,6 +1,5 @@
 import json
 import os
-import uuid
 
 from llama_index.indices.vector_store.retrievers import (
     VectorIndexAutoRetriever,
@@ -29,7 +28,7 @@ num_queries = int(os.environ.get("num_queries") or 1)
 similarity_top_k_before_fusion_multiplier = int(os.environ.get("similarity_top_k_before_fusion_multiplier") or 3)
 
 def get_retriever():
-    input_scheme = scheme["input"]
+    # input_scheme = scheme["input"]
     # vector_store_info = VectorStoreInfo(
     #     content_info=input_scheme["content_info"],
     #     metadata_info=[
@@ -64,11 +63,7 @@ def get_retriever():
     return retriever, retrievers
 
 retriever, _retrievers = get_retriever()
-def handle_session(question, session_id = None):
-    if session_id is None:
-        session_id = str(uuid.uuid4())
-
-    store_session_path = os.path.join(os.environ["chats_path"], session_id)
+def handle_session(question, store_session_path):
     if not gcs_fs.exists(store_session_path):
         chat_engine = CondensePlusContextChatEngine.from_defaults(
             retriever=retriever,
@@ -92,4 +87,4 @@ def handle_session(question, session_id = None):
 
     for _retriever in _retrievers:
         response.source_nodes.extend(_retriever.retrieve(response.response))
-    return response, session_id
+    return response

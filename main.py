@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from utils.chat_engine import handle_session
-from utils.utils import gcs_fs
+from utils.utils import gcs_fs, session_id_wrapper_json
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -36,14 +36,15 @@ async def message(
     question: str,
     session_id: str,
 ):
-    answer, session_id = handle_session(question, session_id=session_id)
+    store_session_path = os.path.join(os.environ["chats_path"], session_id_wrapper_json(session_id))
+    answer = handle_session(question, store_session_path)
     return answer
 
 @app.get("/chat_history")
 async def chat_history(
     session_id: str,
 ):
-    store_session_path = os.path.join(os.environ["chats_path"], session_id)
+    store_session_path = os.path.join(os.environ["chats_path"], session_id_wrapper_json(session_id))
     if gcs_fs.exists(store_session_path):
         with gcs_fs.open(store_session_path, 'r') as f_p:
             chat_history = json.load(f_p)
@@ -54,7 +55,7 @@ async def chat_history(
 async def delete_chat_history(
     session_id: str,
 ):
-    store_session_path = os.path.join(os.environ["chats_path"], session_id)
+    store_session_path = os.path.join(os.environ["chats_path"], session_id_wrapper_json(session_id))
     if gcs_fs.exists(store_session_path):
         gcs_fs.rm(store_session_path)
         return True

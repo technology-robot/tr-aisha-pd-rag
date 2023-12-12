@@ -1,3 +1,5 @@
+import datetime
+
 import gcsfs
 gcs_fs = gcsfs.GCSFileSystem()
 
@@ -108,8 +110,6 @@ def init_llamaindex_indices(
 
 def store_indices(indices, state_path):
     import json
-    import gcsfs
-    gcs_fs = gcsfs.GCSFileSystem()
     with gcs_fs.open(state_path, 'w') as f_p:
         state = {
             "indices": {index_key: index_value.index_id for index_key, index_value in indices.items()}
@@ -118,12 +118,12 @@ def store_indices(indices, state_path):
 
 def load_indices(state_path):
     import json
-    import gcsfs
-    gcs_fs = gcsfs.GCSFileSystem()
     with gcs_fs.open(state_path, 'r') as f_p:
         return json.load(f_p)["indices"]
 
 def check_indices_exist(state_path):
-    import gcsfs
-    gcs_fs = gcsfs.GCSFileSystem()
     return gcs_fs.exists(state_path)
+
+def session_id_wrapper_json(session_id: str) -> str:
+    datetime_now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    return f"{datetime_now}-{session_id}.json"
