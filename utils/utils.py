@@ -28,6 +28,10 @@ def init_llamaindex_context(
     from llama_index.storage.kvstore import MongoDBKVStore
     from llama_index.storage.index_store import MongoIndexStore
     from llama_index.vector_stores.qdrant import QdrantVectorStore
+    from llama_index.callbacks import (
+        CallbackManager,
+        LlamaDebugHandler,
+    )
     from qdrant_client import QdrantClient
     from pymongo import MongoClient
 
@@ -55,11 +59,14 @@ def init_llamaindex_context(
         num_output=int(config["prompt_helper_num_output"]),
         chunk_overlap_ratio=float(config["prompt_helper_chunk_overlap_ratio"]),
     )
+    # llama_debug = LlamaDebugHandler(print_trace_on_end=True)
+    # callback_manager = CallbackManager([llama_debug])
     service_context = ServiceContext.from_defaults(
         llm=llm,
         embed_model=embed_model,
         text_splitter=text_splitter,
         prompt_helper=prompt_helper,
+        # callback_manager=callback_manager,
     )
     set_global_service_context(service_context)    
 
@@ -70,7 +77,11 @@ def init_llamaindex_context(
         ), db_name=collection_name)
     mongodb_doc_store = MongoDocumentStore(mongodbkv_store)
     mongodb_index_store = MongoIndexStore(mongodbkv_store)
-    qdrant_store = QdrantVectorStore(client=qdrant_client, collection_name=collection_name, prefer_grpc=True)
+    qdrant_store = QdrantVectorStore(
+        client=qdrant_client,
+        collection_name=collection_name,
+        prefer_grpc=True
+    )
 
     storage_context = StorageContext.from_defaults(
         docstore=mongodb_doc_store,

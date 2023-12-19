@@ -1,5 +1,7 @@
 import json
 import os
+import logging
+import sys
 
 from llama_index.indices.vector_store.retrievers import (
     VectorIndexAutoRetriever,
@@ -10,6 +12,27 @@ from llama_index.chat_engine import CondensePlusContextChatEngine
 from llama_index.llms.base import ChatMessage
 
 from utils.utils import init_llamaindex_context, init_llamaindex_indices, load_indices, gcs_fs
+
+
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+# logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
+
+
+CONTEXT_PROMPT_TEMPLATE = """
+  The following is a friendly conversation between a user and an AI assistant.
+  The assistant is talkative and provides lots of specific details from its context.
+  If the assistant does not know the answer to a question, it truthfully says it
+  does not know. If more information from the user helps to provide more truthful information,
+  the assistant asks more question(s).
+
+  Here are the relevant products for the context:
+
+  {context_str}
+
+  Instruction: Based on the above products, provide a detailed answer for the user question below.
+  Answer "don't know" if not present in the product.
+  Asks more question(s) if not present and the user question can be more clear.
+  """
 
 
 service_context, storage_context, scheme = init_llamaindex_context(
@@ -49,17 +72,18 @@ def get_retriever():
     retrievers = [
         vector_retriever,
         # bm25_retriever,
-        indices["keyword_table_index"].as_retriever(similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
+        # indices["keyword_table_index"].as_retriever(similarity_top_k=similarity_top_k * similarity_top_k_before_fusion_multiplier)
     ]  # make sure the keyword table is the last position
-    retriever = QueryFusionRetriever(
-        retrievers,
-        similarity_top_k=similarity_top_k,
-        num_queries=num_queries,  # set this to 1 to disable query generation
-        mode="reciprocal_rerank",
-        use_async=False,
-        verbose=False,
-        # query_gen_prompt="...",  # we could override the query generation prompt here
-    )
+    # retriever = QueryFusionRetriever(
+    #     retrievers,
+    #     similarity_top_k=similarity_top_k,
+    #     num_queries=num_queries,  # set this to 1 to disable query generation
+    #     mode="reciprocal_rerank",
+    #     use_async=False,
+    #     verbose=False,
+    #     # query_gen_prompt="...",  # we could override the query generation prompt here
+    # )
+    retriever=vector_retriever
     return retriever, retrievers
 
 retriever, _retrievers = get_retriever()
@@ -77,14 +101,17 @@ def handle_session(question, store_session_path):
         chat_engine = CondensePlusContextChatEngine.from_defaults(
             retriever=retriever,
             chat_history=chat_history,
-            verbose=False
+            verbose=False,
+            system_prompt=None,
+            context_prompt=CONTEXT_PROMPT_TEMPLATE,
+            condense_prompt=None,
         )
 
     response = chat_engine.chat(question)
     chat_history = [model.dict() for model in chat_engine.chat_history]
     with gcs_fs.open(store_session_path, 'w') as f_p:
-        json.dump(chat_history, f_p)
+        json.dump(chat_history, f_p, indent=2)
 
-    for _retriever in _retrievers:
-        response.source_nodes.extend(_retriever.retrieve(response.response))
+    # for _retriever in _retrievers:
+    #     response.source_nodes.extend(_retriever.retrieve(response.response))
     return response

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from utils.chat_engine import handle_session
 from utils.utils import gcs_fs, session_id_wrapper_json
 
-logging.getLogger().setLevel(logging.INFO)
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+# logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 
 app = FastAPI()
 

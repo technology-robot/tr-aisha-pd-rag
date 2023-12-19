@@ -1,10 +1,9 @@
-artifact_path="us-central1-docker.pkg.dev/technology-robot/aisha-for-product-recommendation/rag:latest"
+artifact_path="us-central1-docker.pkg.dev/technology-robot/aisha/rag:latest"
 docker build . -t $artifact_path
 docker push $artifact_path
+gcloud run deploy aisha-for-product-recommendation --image=$artifact_path ...
 
 gcloud builds submit --tag=$artifact_path
-
-gcloud run deploy aisha-for-product-recommendation --image=$artifact_path ...
 
 ---
 
@@ -28,4 +27,8 @@ gcloud compute routers nats create egress \
   --nat-custom-subnet-ip-ranges=egress \
   --nat-external-ip-pool=egress
 
+---
 
+## Run locally
+
+uvicorn main:app --reload
