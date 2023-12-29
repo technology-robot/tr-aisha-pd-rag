@@ -2,6 +2,7 @@ import json
 import os
 import logging
 import sys
+from typing import Generator
 
 from llama_index.indices.vector_store.retrievers import (
     VectorIndexAutoRetriever,
@@ -87,7 +88,11 @@ def get_retriever():
     return retriever, retrievers
 
 retriever, _retrievers = get_retriever()
-def handle_session(question, store_session_path):
+
+def convert_json_to_stream_data(response):
+    return "data: " + json.dumps(response) + "\n\n"
+
+async def handle_session(question, store_session_path) -> Generator:
     if not gcs_fs.exists(store_session_path):
         chat_engine = CondensePlusContextChatEngine.from_defaults(
             retriever=retriever,
@@ -107,11 +112,32 @@ def handle_session(question, store_session_path):
             condense_prompt=None,
         )
 
-    response = chat_engine.chat(question)
-    chat_history = [model.dict() for model in chat_engine.chat_history]
-    with gcs_fs.open(store_session_path, 'w') as f_p:
-        json.dump(chat_history, f_p, indent=2)
+    stream_response = chat_engine.stream_chat(question)
 
     # for _retriever in _retrievers:
     #     response.source_nodes.extend(_retriever.retrieve(response.response))
-    return response
+
+    node_sources = [{
+        "node": {
+            "metadata": node.node.metadata,
+            "text": node.node.text
+        }
+    } for node in stream_response.source_nodes]
+
+    yield convert_json_to_stream_data({
+        "response": "",
+        "source_nodes": node_sources
+    })
+
+    text = ""
+    for chunk in stream_response.response_gen:
+        text += chunk
+        response = {
+            "response": text,
+            "source_nodes": node_sources
+        }
+        yield "data: " + json.dumps(response) + "\n\n"
+
+    chat_history = [model.dict() for model in chat_engine.chat_history]
+    with gcs_fs.open(store_session_path, 'w') as f_p:
+        json.dump(chat_history, f_p, indent=2)

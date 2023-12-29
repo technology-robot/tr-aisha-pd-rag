@@ -3,8 +3,9 @@ import logging
 import os
 import sys
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from utils.chat_engine import handle_session
 from utils.utils import gcs_fs, session_id_wrapper_json
@@ -39,8 +40,11 @@ async def message(
     session_id: str,
 ):
     store_session_path = os.path.join(os.environ["chats_path"], session_id_wrapper_json(session_id))
-    answer = handle_session(question, store_session_path)
-    return answer
+
+    return StreamingResponse(
+        handle_session(question, store_session_path),
+        media_type="text/event-stream",
+    )
 
 @app.get("/chat_history")
 async def chat_history(
